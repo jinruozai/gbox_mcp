@@ -8,12 +8,13 @@ from mcp.server.fastmcp import FastMCP
 
 
 class GBoxCommunicator:
-	def __init__(self, ip='10.211.55.4', port=20000, listen_port=20001):
+	def __init__(self, ip='10.211.55.4', port=20000):
 		self.ip = ip
 		self.port = port
-		self.listen_port = listen_port
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-		self.sock.bind(('0.0.0.0', self.listen_port))  # 绑定固定接收端口
+		self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # 允许端口重用
+		self.sock.bind(('0.0.0.0', 0))  # 让系统自动分配端口
+		self.listen_port = self.sock.getsockname()[1]  # 获取系统分配的端口号
 		self.sock.settimeout(5)
 		print(f"UDP socket 已绑定到端口 {self.listen_port}")
 		
