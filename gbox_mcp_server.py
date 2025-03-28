@@ -6,6 +6,25 @@ import time
 import sys
 from mcp.server.fastmcp import FastMCP
 
+# GBox 工具列表定义
+GBOX_TOOLS = {
+    "get_weather": {
+        "name": "get_weather",
+        "description": "获取指定城市的天气信息",
+        "function": "get_weather",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "city": {
+                    "type": "string",
+                    "description": "城市名称",
+                    "default": "Beijing"
+                }
+            }
+        }
+    }
+    # 在这里添加更多工具...
+}
 
 class GBoxCommunicator:
 	def __init__(self, ip='10.211.55.4', port=20000):
@@ -48,7 +67,30 @@ class GBoxCommunicator:
 		self.sock.sendto(full_msg, (self.ip, self.port))
 		print(f"已发送消息到 GBox ({self.ip}:{self.port}): {message}")
 	
-    
+	def get_tools(self):
+		"""从GBox获取可用的工具列表"""
+		message = {
+			"function": "get_tools",
+			"params": {}
+		}
+		json_str = json.dumps(message)
+		self.send_gbox_str(json_str)
+		try:
+			response = self.receive_response()
+			# 检查返回的是否是有效的工具列表格式（直接返回工具字典）
+			if isinstance(response, dict):
+				# 检查每个工具的格式是否正确
+				for tool_name, tool_info in response.items():
+					if not isinstance(tool_info, dict) or "name" not in tool_info or "description" not in tool_info:
+						print(f"警告：工具 {tool_name} 的定义格式不正确")
+						return {}
+				return response
+			print(f"警告：GBox返回的不是有效的工具列表: {response}")
+			return {}
+		except Exception as e:
+			print(f"获取工具列表失败: {e}")
+			return {}
+	
 	def parse_gbox_string(self, data):
 		"""解析 GBox 的 AutoVar 字符串格式"""
 		try:
@@ -72,6 +114,7 @@ class GBoxCommunicator:
 				
 			var_len = struct.unpack('<I', data[16:20])[0]
 			print(f"变量数据长度: {var_len}")
+			
 			if var_len == 0:
 				return ""
 				
@@ -159,52 +202,81 @@ class GBoxCommunicator:
 			print(f"接收响应时发生错误: {e}")
 			raise
 
-
-mcp = FastMCP("GBox MCP")
-gbox = GBoxCommunicator()
-
-
-@mcp.tool()
-def get_weather(city: str = "Beijing"):
-	"""获取指定城市的天气信息
-	Args:
-		city: 城市名称，默认为北京
-	Returns:
-		dict: 包含天气信息的字典
-	"""
-	# 构造发送给 GBox 的消息
-	message = {
-		"function": "get_weather",
-		"params": {
-			"city": city
-		}
-	}
+def register_gbox_tools(mcp_server, gbox_comm):
+	"""注册 GBox 提供的所有工具到 MCP 服务器
 	
-	try:
-		print(f"\n开始获取 {city} 的天气信息...")
-		# 发送消息到 GBox
-		json_str = json.dumps(message)
-		gbox.send_gbox_str(json_str)
-		
-		# 接收 GBox 的响应
-		response = gbox.receive_response()
-		return response
+	Args:
+		mcp_server: FastMCP 服务器实例
+		gbox_comm: GBox 通信器实例
+	"""
+	# 从GBox获取工具列表
+	tools = gbox_comm.get_tools()
+	if not tools or not isinstance(tools, dict):
+		print("警告：无法从GBox获取有效的工具列表，将使用默认工具列表")
+		tools = GBOX_TOOLS
+	
+	def create_tool_wrapper(tool_name, tool_info):
+		"""创建工具包装函数"""
+		def wrapper(**kwargs):
+			# 构造发送给 GBox 的消息
+			message = {
+				"function": tool_name,
+				"params": kwargs
+			}
 			
-	except TimeoutError:
-		return {"error": "请求超时", "message": "GBox 响应超时"}
-	except Exception as e:
-		return {"error": "请求出错", "message": str(e)}
+			try:
+				print(f"\n开始调用工具 {tool_name}...")
+				# 发送消息到 GBox
+				json_str = json.dumps(message)
+				gbox_comm.send_gbox_str(json_str)
+				
+				# 接收 GBox 的响应
+				response = gbox_comm.receive_response()
+				return response
+					
+			except TimeoutError:
+				return {"error": "请求超时", "message": "GBox 响应超时"}
+			except Exception as e:
+				return {"error": "请求出错", "message": str(e)}
+		
+		return wrapper
 
+	# 注册所有工具
+	for tool_name, tool_info in tools.items():
+		if not isinstance(tool_info, dict) or "name" not in tool_info or "description" not in tool_info:
+			print(f"警告：工具 {tool_name} 的定义格式不正确，跳过注册")
+			continue
+			
+		wrapper = create_tool_wrapper(tool_name, tool_info)
+		mcp_server.tool(name=tool_info["name"], description=tool_info["description"])(wrapper)
 
-if __name__ == "__main__":
+	print(f"已注册 {len(tools)} 个 GBox 工具")
+
+def main():
+	"""主函数，处理命令行参数并运行服务器"""
+	mcp = FastMCP("GBox MCP")
+	gbox = GBoxCommunicator()
+	
+	# 注册工具
+	register_gbox_tools(mcp, gbox)
+	
 	if len(sys.argv) > 1 and sys.argv[1] == "test":
 		# 测试模式
 		city = "Beijing"
 		if len(sys.argv) > 2:
 			city = sys.argv[2]
 		print(f"测试获取天气信息: {city}")
-		result = get_weather(city)
+		message = {
+			"function": "get_weather",
+			"params": {"city": city}
+		}
+		json_str = json.dumps(message)
+		gbox.send_gbox_str(json_str)
+		result = gbox.receive_response()
 		print(f"结果: {result}")
 	else:
 		# MCP 服务器模式
-		mcp.run(transport='stdio') 
+		mcp.run(transport='stdio')
+
+if __name__ == "__main__":
+	main() 
