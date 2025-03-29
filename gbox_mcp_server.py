@@ -88,38 +88,12 @@ class GBoxCommunicator:
 		}
 		self.send_gbox_str(json.dumps(message))
 		try:
+			# 接收原始响应字符串
 			response = self.receive_response()
+			print(f"收到GBox工具列表原始响应: {response}")
 			
-			# 如果收到的是字符串，说明解析成功但非JSON格式
-			if isinstance(response, str):
-				print(f"收到非JSON格式的工具列表，内容长度: {len(response)}")
-				return GBOX_TOOLS  # 使用默认工具列表
-			
-			# 如果收到的是字典类型，检查是否是有效的工具列表
-			if isinstance(response, dict):
-				# 如果收到的是消息响应，而不是工具列表
-				if "function" in response or "message" in response:
-					print(f"获取工具列表失败，返回的不是工具列表格式: {response}")
-					return GBOX_TOOLS
-				
-				# 检查每个工具的格式是否正确
-				valid_tools = {}
-				for tool_name, tool_info in response.items():
-					if not isinstance(tool_info, dict):
-						print(f"警告：工具 {tool_name} 不是字典格式")
-						continue
-					if "name" not in tool_info or "description" not in tool_info:
-						print(f"警告：工具 {tool_name} 缺少必要字段")
-						continue
-					valid_tools[tool_name] = tool_info
-				
-				if not valid_tools:
-					print("没有找到有效的工具定义")
-					return GBOX_TOOLS
-				
-				return valid_tools
-			
-			print(f"警告：GBox返回的不是有效的工具列表格式: {type(response)}")
+			# 不做任何处理，直接使用默认工具列表
+			print(f"使用默认工具列表: {GBOX_TOOLS}")
 			return GBOX_TOOLS
 		except Exception as e:
 			print(f"获取工具列表失败: {e}")
@@ -149,12 +123,15 @@ class GBoxCommunicator:
 				
 			var_len = struct.unpack('<I', data[16:20])[0]
 			print(f"变量数据长度: {var_len}")
+			print(f"实际可用数据长度: {len(data) - 20}")
 			
 			if var_len == 0:
 				return ""
 				
 			# 3. 解析字符串数据
 			var_data = data[20:20+var_len]  # 只取变量数据部分
+			print(f"变量数据实际读取: {len(var_data)} 字节")
+			
 			if len(var_data) < 1:
 				return None
 				
@@ -170,94 +147,88 @@ class GBoxCommunicator:
 					print("字符串数据不完整：缺少长度字节")
 					return None
 				str_len = var_data[1]
-				# 检查是否有足够的数据
-				if 2 + str_len > len(var_data):
-					print(f"警告: 字符串长度与实际数据不匹配，报告长度{str_len}字节，实际只有{len(var_data)-2}字节")
-					# 这里仍然尝试读取所有可用数据，避免截断
-					content = var_data[2:]
-				else:
-					content = var_data[2:2+str_len]
+				# 无论如何，都使用所有可用数据，因为GBox的字符串长度字段可能不准确
+				content = var_data[2:]
+				print(f"字符串声明长度: {str_len}, 实际使用所有可用数据: {len(content)}字节")
 			elif var_type == 0xB2:  # EXTSAVE_STR_WORD
 				if len(var_data) < 3:
 					print("字符串数据不完整：缺少长度字节")
 					return None
 				str_len = struct.unpack('<H', var_data[1:3])[0]
-				# 检查是否有足够的数据
-				if 3 + str_len > len(var_data):
-					print(f"警告: 字符串长度与实际数据不匹配，报告长度{str_len}字节，实际只有{len(var_data)-3}字节")
-					# 尝试读取所有可用数据
-					content = var_data[3:]
-				else:
-					content = var_data[3:3+str_len]
+				# 无论如何，都使用所有可用数据
+				content = var_data[3:]
+				print(f"字符串声明长度: {str_len}, 实际使用所有可用数据: {len(content)}字节")
 			elif var_type == 0xB3:  # EXTSAVE_STR_LONG
 				if len(var_data) < 5:
 					print("字符串数据不完整：缺少长度字节")
 					return None
 				str_len = struct.unpack('<I', var_data[1:5])[0]
-				# 检查是否有足够的数据
-				if 5 + str_len > len(var_data):
-					print(f"警告: 字符串长度与实际数据不匹配，报告长度{str_len}字节，实际只有{len(var_data)-5}字节")
-					# 尝试读取所有可用数据
-					content = var_data[5:]
-				else:
-					content = var_data[5:5+str_len]
+				# 无论如何，都使用所有可用数据
+				content = var_data[5:]
+				print(f"字符串声明长度: {str_len}, 实际使用所有可用数据: {len(content)}字节")
 			else:
 				print(f"未知的变量类型: 0x{var_type:02X}")
 				return None
-				
-			print(f"字符串长度: {str_len}，实际读取: {len(content)} 字节")
 			
 			if content is None:
 				return None
 				
 			# 特殊处理: 打印字节序列以便调试
-			print("字节内容前20字节:")
-			hex_str = ' '.join([f'{b:02X}' for b in content[:min(20, len(content))]])
+			print("字节内容:")
+			hex_str = ' '.join([f'{b:02X}' for b in content])
 			print(hex_str)
 			
 			# GBox的编码方式很特殊，需要特殊处理：
 			# - ASCII字符(小于0x80)直接一个字节表示
 			# - 非ASCII字符(中文等)使用: 标记字节(0x80-0x96) + 连续的两字节Unicode字符
+			# 注意：GBox计算字符串长度时似乎只计算了标记字节，而没有计算中文字符实际占用的字节数
 			result = ""
 			i = 0
+			
 			while i < len(content):
 				if content[i] < 0x80:  # ASCII字符
 					result += chr(content[i])
 					i += 1
-				elif 0x80 <= content[i] <= 0x96:  # 非ASCII字符的标记字节
+				elif 0x80 <= content[i] <= 0x96 and i + 1 < len(content):  # 非ASCII字符的标记字节
 					char_count = content[i] - 0x80  # 标记字节后面的Unicode字符数量
-					print(f"发现标记字节: 0x{content[i]:02X}, 表示{char_count}个Unicode字符")
-					i += 1
+					print(f"发现标记字节: 0x{content[i]:02X}, 表示{char_count}个Unicode字符，位置: {i}/{len(content)}")
 					
-					if i + char_count*2 > len(content):
-						print(f"警告: Unicode字符数量超出数据范围，需要{char_count*2}字节，只剩{len(content)-i}字节")
-						# 只读取可用的完整字符
-						char_count = min(char_count, (len(content) - i) // 2)
-						print(f"调整为读取{char_count}个Unicode字符")
+					# 打印标记字节后的数据，帮助调试
+					remaining = len(content) - i - 1
+					bytes_needed = char_count * 2
+					print(f"需要{bytes_needed}字节表示{char_count}个Unicode字符，剩余{remaining}字节")
 					
-					for j in range(char_count):
+					i += 1  # 移过标记字节
+					
+					# 读取尽可能多的Unicode字符，但不超过标记字节指示的数量
+					actual_count = min(char_count, remaining // 2)
+					for j in range(actual_count):
 						if i + 1 < len(content):
 							unicode_char = struct.unpack('<H', content[i:i+2])[0]
 							result += chr(unicode_char)
-							print(f"Unicode字符: 0x{unicode_char:04X} -> {chr(unicode_char)}")
+							print(f"Unicode字符{j+1}/{actual_count}: 0x{unicode_char:04X} -> {chr(unicode_char)}")
 							i += 2
 						else:
 							break
-				else:  # 尝试作为GBK编码处理
+				else:  # 尝试作为GBK编码处理或单字节处理
 					if i + 1 < len(content):
 						try:
+							# 可能是普通的双字节编码字符
 							char_bytes = bytes([content[i], content[i+1]])
 							char = char_bytes.decode('gbk')
 							result += char
 							i += 2
+							print(f"GBK解码: 0x{content[i-2]:02X}{content[i-1]:02X} -> {char}")
 						except:
+							# 解码失败，按单字节处理
 							result += chr(content[i])
 							i += 1
 					else:
+						# 剩最后一个字节，直接处理
 						result += chr(content[i])
 						i += 1
 			
-			print(f"解析后字符串: {result}")
+			print(f"最终解析字符串: {result}")
 			return result
 				
 		except Exception as e:
@@ -271,9 +242,8 @@ class GBoxCommunicator:
 		# 首先尝试直接解码
 		try:
 			result = content.decode('utf-8')
-			if self._is_valid_json(result):
-				print(f"UTF-8解码成功: {result}")
-				return result
+			print(f"UTF-8解码成功: {result}")
+			return result
 		except UnicodeDecodeError:
 			pass
 		
@@ -312,21 +282,7 @@ class GBoxCommunicator:
 			# 尝试解码处理后的数据
 			result = processed.decode('utf-8')
 			print(f"GBox编码处理结果: {result}")
-			
-			# 验证JSON格式
-			if self._is_valid_json(result):
-				return result
-				
-			# 如果JSON不完整，尝试修复
-			if result.count('{') > 0:
-				# 找到第一个 { 和最后一个 }
-				start = result.find('{')
-				end = result.rfind('}')
-				if start >= 0 and end > start:
-					result = result[start:end+1]
-					print(f"提取JSON部分: {result}")
-					if self._is_valid_json(result):
-						return result
+			return result
 					
 		except Exception as e:
 			print(f"GBox编码处理失败: {e}")
@@ -340,37 +296,41 @@ class GBoxCommunicator:
 		
 		return None
 
-	def _is_valid_json(self, s):
-		"""检查字符串是否是有效的JSON"""
-		try:
-			# 检查字符串是否以 { 开始
-			s = s.strip()
-			if not s.startswith('{'):
-				return False
-			# 尝试解析JSON
-			parsed = json.loads(s)
-			# 确保解析出的是一个字典
-			if not isinstance(parsed, dict):
-				return False
-			return True
-		except:
-			return False
-	
-	def receive_response(self, timeout=5) -> dict:
+	def receive_response(self, timeout=5):
 		"""接收GBox的响应
 		Args:
 			timeout: 超时时间（秒）
 		Returns:
-			dict: 解析后的响应数据
+			解析后的原始字符串内容
 		"""
 		print(f"等待 GBox 响应，超时时间 {timeout} 秒...")
 		self.sock.settimeout(timeout)
 		
 		try:
 			print("等待接收数据...")
-			# 增加接收缓冲区大小到5KB，与GBox原始代码保持一致
+			# 接收缓冲区大小5KB，与GBox原始代码保持一致
 			data, addr = self.sock.recvfrom(5*1024)
-			print(f"收到来自 {addr} 的响应，长度: {len(data)} 字节")
+			data_size = len(data)
+			print(f"收到来自 {addr} 的响应，长度: {data_size} 字节")
+			
+			# 打印原始数据的十六进制表示
+			print("原始数据(十六进制):")
+			hex_chunks = []
+			hex_line = ""
+			ascii_line = ""
+			for i, b in enumerate(data):
+				if i % 16 == 0 and i > 0:
+					hex_chunks.append(f"{i-16:04X}: {hex_line} | {ascii_line}")
+					hex_line = ""
+					ascii_line = ""
+				hex_line += f"{b:02X} "
+				ascii_line += chr(b) if 32 <= b <= 126 else "."
+			# 添加最后一行
+			if hex_line:
+				padding = "   " * (16 - (data_size % 16))
+				hex_chunks.append(f"{(data_size // 16) * 16:04X}: {hex_line} {padding}| {ascii_line}")
+			for chunk in hex_chunks:
+				print(chunk)
 			
 			# 解析 GBox 字符串格式
 			content = self.parse_gbox_string(data)
@@ -378,16 +338,10 @@ class GBoxCommunicator:
 				raise ValueError("无法解析 GBox 字符串格式")
 				
 			print(f"解析出的内容: {content}")
+			print(f"解析字符串长度: {len(content)}")
 			
-			# 尝试解析为 JSON，如果不是 JSON 则直接返回原始内容
-			try:
-				response = json.loads(content)
-				print(f"JSON解析结果: {response}")
-				return response
-			except json.JSONDecodeError:
-				# 直接返回原始内容，不尝试修复
-				print("不是标准JSON格式，直接返回原始内容")
-				return content
+			# 直接返回解析后的字符串内容，不做任何JSON处理
+			return content
 			
 		except socket.timeout:
 			print("等待响应超时")
@@ -396,96 +350,6 @@ class GBoxCommunicator:
 			print(f"接收响应时发生错误: {e}")
 			raise
 
-	def fix_gbox_json(self, json_str):
-		"""修复GBox返回的非标准JSON格式
-		Args:
-			json_str: GBox返回的JSON字符串
-		Returns:
-			str: 修复后的标准JSON字符串
-		"""
-		# GBox返回的JSON格式特点：
-		# 1. 键名不用引号包裹，如 {key : value} 而不是 {"key" : value}
-		# 2. 值之间使用空格分隔，而不是逗号，如 {key1 : value1 key2 : value2}
-		
-		# 第一步：将所有没有引号的键添加引号
-		result = ""
-		in_string = False
-		i = 0
-		
-		while i < len(json_str):
-			if json_str[i] == '"':
-				# 切换字符串状态
-				in_string = not in_string
-				result += json_str[i]
-			elif json_str[i] == ':' and not in_string:
-				# 找到前面的键名
-				j = i - 1
-				while j >= 0 and json_str[j].isspace():
-					j -= 1
-				
-				if j >= 0 and json_str[j] != '"':
-					# 键名不是以引号结束的，寻找键名开始位置
-					key_end = j + 1
-					while j >= 0 and (json_str[j].isalnum() or json_str[j] == '_'):
-						j -= 1
-					key_start = j + 1
-					
-					# 替换键名为带引号的格式
-					key = json_str[key_start:key_end]
-					result = result[:-(key_end-key_start)] + '"' + key + '"'
-				
-				result += json_str[i]
-			else:
-				result += json_str[i]
-			
-			i += 1
-		
-		# 第二步：将空格分隔符替换为逗号
-		json_str = result
-		result = ""
-		in_string = False
-		i = 0
-		
-		while i < len(json_str):
-			if json_str[i] == '"':
-				# 切换字符串状态
-				in_string = not in_string
-				result += json_str[i]
-			elif json_str[i] == '}' and not in_string:
-				# 检查是否需要在}前添加逗号
-				result = result.rstrip()
-				if result.endswith(','):
-					result = result[:-1]
-				result += json_str[i]
-			elif not in_string and i + 1 < len(json_str):
-				current_char = json_str[i]
-				next_char = json_str[i+1]
-				
-				# 找到键值对之间的间隔
-				if (current_char in ['"', '}', ']', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'e', 'E', 'l', 'L', 'f', 'F', 't', 'T', 'r', 'R', 'u', 'U', 'n', 'N', 'a', 'A', 's', 'S']) and \
-				   next_char.isspace() and i + 2 < len(json_str):
-					   
-					# 跳过空白
-					j = i + 1
-					while j < len(json_str) and json_str[j].isspace():
-						j += 1
-					
-					# 如果下一个非空白字符是键名（字母、数字或引号），则添加逗号
-					if j < len(json_str) and (json_str[j].isalnum() or json_str[j] == '"'):
-						result += current_char + ','
-					else:
-						result += current_char
-					
-					i += 1
-				else:
-					result += current_char
-			else:
-				result += json_str[i]
-			
-			i += 1
-		
-		return result
-
 def register_gbox_tools(mcp_server, gbox_comm):
 	"""注册 GBox 提供的所有工具到 MCP 服务器
 	
@@ -493,11 +357,8 @@ def register_gbox_tools(mcp_server, gbox_comm):
 		mcp_server: FastMCP 服务器实例
 		gbox_comm: GBox 通信器实例
 	"""
-	# 从GBox获取工具列表
-	tools = gbox_comm.get_tools()
-	if not tools or not isinstance(tools, dict):
-		print("警告：无法从GBox获取有效的工具列表，将使用默认工具列表")
-		tools = GBOX_TOOLS
+	# 使用默认工具列表
+	tools = GBOX_TOOLS
 	
 	def create_tool_wrapper(tool_name, tool_info):
 		"""创建工具包装函数"""
@@ -516,7 +377,14 @@ def register_gbox_tools(mcp_server, gbox_comm):
 				
 				# 接收 GBox 的响应
 				response = gbox_comm.receive_response()
-				return response
+				print(f"工具返回原始响应: {response}")
+				
+				# 尝试将响应解析为JSON对象
+				try:
+					return json.loads(response)
+				except:
+					# 如果解析失败，返回原始字符串作为消息
+					return {"raw_response": response}
 					
 			except TimeoutError:
 				return {"error": "请求超时", "message": "GBox 响应超时"}
@@ -545,18 +413,9 @@ def main():
 	register_gbox_tools(mcp, gbox)
 	
 	if len(sys.argv) > 1 and sys.argv[1] == "test":
-		# 测试模式
-		city = "Beijing"
-		if len(sys.argv) > 2:
-			city = sys.argv[2]
-		print(f"测试获取天气信息: {city}")
-		message = {
-			"function": "get_weather",
-			"params": {"city": city}
-		}
-		gbox.send_gbox_str(json.dumps(message))
+		gbox.send_gbox_str("test")
 		result = gbox.receive_response()
-		print(f"结果: {result}")
+		print(f"收到原始响应: {result}")
 	else:
 		# MCP 服务器模式
 		mcp.run(transport='stdio')
