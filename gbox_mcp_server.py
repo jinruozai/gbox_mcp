@@ -27,7 +27,7 @@ GBOX_TOOLS = {
 }
 
 class GBoxCommunicator:
-	def __init__(self, ip='10.211.55.4', port=20000):
+	def __init__(self, ip='127.0.0.1', port=20000):
 		self.ip = ip
 		self.port = port
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
