@@ -9,39 +9,26 @@ from gboxudp import GBoxUDP
 # 定义全局变量
 gbox = None
 
-def hello_mcp():
-    try:
-        des = get_mcp_description()
-        print("start mcp server:", des)
-    except Exception as e:
-        print("获取MCP描述失败:", e)
-
 # 初始化MCP
 mcp = FastMCP("GBox")
 
-@mcp.tool()
-def get_mcp_description():
-    """获取MCP描述
-    Returns:
-        str: MCP的简短描述
-    """
-    return gbox.call("get_mcp_description")
-
-@mcp.tool()
-def get_scene_range():
-    """获取场景地图的尺寸范围
-    Returns:
-        dict: 包含地图边界坐标(xmin,ymin,xmax,ymax)的字典
-    """
-    return gbox.call("get_scene_range")
-
-@mcp.tool()
-def create_rand_object():
-    """在场景中的随机位置创建一个随机物体
-    Returns:
-        dict: 包含创建结果的字典
-    """
-    return gbox.call("create_rand_object")
+def init_tools():
+    """初始化所有工具"""
+    # 获取工具列表
+    tools_info = gbox.call("get_tools")
+    print("tools_info:", tools_info)
+    
+    # 遍历工具列表并添加到MCP
+    for name, info in tools_info.items():
+        # 为每个工具创建一个lambda函数，捕获工具名称
+        tool_func = lambda tool_name=name: gbox.call(tool_name)
+        # 添加工具到MCP
+        mcp.add_tool(
+            tool_func,
+            name=name,
+            description=info["description"]
+        )
+    print(f"成功初始化 {len(tools_info)} 个工具")
 
 # 解析命令行参数
 def parse_args():
@@ -59,8 +46,8 @@ if __name__ == "__main__":
     # 初始化GBoxUDP实例
     gbox = GBoxUDP(**params)
     
-    # 在新线程中获取并打印MCP描述
-    hello_mcp()
+    # 初始化工具
+    init_tools()
     
     # 启动MCP服务器
     mcp.run(transport='stdio')

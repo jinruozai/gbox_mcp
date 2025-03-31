@@ -1,12 +1,13 @@
-class GBoxMCP:GSocketUdp{
+class SysBoxMCP:GSocketUdp{
+	obj m_pTool;
 	void Start(int port){
 		BindPort(port);
 		?"Gbox Mcp Client UDP started at "+sys::GetSelfIPAddress()+":"+m_nPort;
 	}
+	void RegTool(obj p){
+		m_pTool=p;
+	}
 	void OnCmd(int cmd,var agv,int ip,int port){
-		SendTo(ip, port, 1, "本MCP为游戏《AIWorld》的控制器。这是一个AI驱动的开放世界游戏，玩家可以探索动态生成的环境并与智能NPC互动");
-		?"agv:  ",agv;
-		/*
 		if(!agv.IsString()){
 			?"on cmd err:",cmd,agv,ip,port;
 			return;
@@ -27,32 +28,47 @@ class GBoxMCP:GSocketUdp{
 		if(result.svGetJsonText(s)) SendTo(ip, port, 1, s);
 		else SendTo(ip, port, 1, ""+result);
 		?"cmd:"+cmd+";agv:"+agv+";ip:"+ip+";port:"+port+";result="+result;
-		*/
 	}
-	string get_mcp_description(){
-		return "本MCP为游戏《AIWorld》的控制器。这是一个AI驱动的开放世界游戏，玩家可以探索动态生成的环境并与智能NPC互动";
-	}
-	string get_tools(){
-		var v,vfun;string result;
-		vfun.svSet("name","get_scene_range");
-		vfun.svSet("description","获取场景地图的尺寸范围,返回(xmin,ymin,xmax,ymax)");
-		vfun.svSet("function","get_scene_range");
-		v.svSet("get_scene_range",vfun);
-		vfun.svSet("name","create_rand_object");
-		vfun.svSet("description","在场景中的随机位置创建一个随机物体");
-		vfun.svSet("function","create_rand_object");
-		v.svSet("create_rand_object",vfun);
-		if(!v.svGetJsonText(result)){
-			Err("转换结果失败:"+v);	
-		}
-		return result;
-	}
-	string get_scene_range(){
-		return "[-25,-25,25,25]";
-	}
-	string create_rand_object(){
-		return "创建了一个随机物体";
+	var get_tools(){
+		var v=GLLMTool::GetTools(m_pTool);
+		?v;
+		return v;
 	}
 }
+class GMcpTool:GObj{
+	obj get_obj_by_uid(int64 uid){
+		return m_pScene;
+	}
+	notes("fun","获取场景树根节点=get_scene_root_info","","","","获取场景树根节点信息");
+	var get_scene_root_info(){
+		var v;
+		v.svSet("uid",""+m_pScene);
+		v.svSet("name",m_pScene.GetName());
+		return v;
+	}
+	notes("fun","获取子节点=get_sub_node_list_info","对象uid=0","","","获取某节点的子节点列表");
+	var get_sub_node_list_info(int64 uid=0){
+		var v,ret;
+		obj p=get_obj_by_uid(uid);
+		if(!p.isobj()){
+			ERR::Str("没找到uid对象;uid="+uid);
+			return v;
+		}
+		obj psub;
+		var szsub=p.GetAllSubSz();
+		for psub in szsub{
+			v.svSet("uid",""+psub);
+			v.svSet("name",m_pScene.GetName());
+			ret.SzAdd(v);
+		}
+		return ret;
+	}
+}
+
+#ifmain "def.gb"
+GMcpTool m_pTool;
 // 只需要一个UDP实例来监听
-GBoxMCP m_pOut:Start(20000);s
+SysBoxMCP m_pMcp:Start(20000):RegTool(m_pTool);
+
+?m_pMcp.get_tools();
+#endif

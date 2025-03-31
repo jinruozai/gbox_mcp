@@ -35,7 +35,10 @@ class GBoxUDP:
             print("response:", response)
             # 尝试解析为JSON
             try:
-                return json.loads(response)
+                response = json.loads(response)
+                if isinstance(response, dict) and 'result' in response:
+                    return json.loads(response['result'])
+                return response
             except json.JSONDecodeError:
                 return {"raw_response": response}
                 
@@ -159,31 +162,30 @@ class GBoxUDP:
                 if content[i] < 0x80:  # ASCII字符
                     result += chr(content[i])
                     i += 1
-                elif 0x80 <= content[i] <= 0x96 and i + 1 < len(content):  # 非ASCII字符的标记字节
-                    char_count = content[i] - 0x80
+                    continue
+                
+                # 处理标记字节(0x80+N)
+                if content[i] >= 0x80:
+                    unicode_count = content[i] - 0x80  # 获取后续Unicode字符数量
                     i += 1
                     
-                    actual_count = min(char_count, (len(content) - i) // 2)
-                    for j in range(actual_count):
-                        if i + 1 < len(content):
-                            unicode_char = struct.unpack('<H', content[i:i+2])[0]
-                            result += chr(unicode_char)
-                            i += 2
-                        else:
+                    # 确保有足够的字节可读
+                    if i + unicode_count * 2 > len(content):
+                        print(f"Warning: 标记字节指示{unicode_count}个Unicode字符,但剩余字节不足")
+                        break
+                    
+                    # 读取指定数量的Unicode字符
+                    for _ in range(unicode_count):
+                        if i + 1 >= len(content):
                             break
-                else:  # 尝试作为GBK编码处理或单字节处理
-                    if i + 1 < len(content):
-                        try:
-                            char_bytes = bytes([content[i], content[i+1]])
-                            char = char_bytes.decode('gbk')
-                            result += char
-                            i += 2
-                        except:
-                            result += chr(content[i])
-                            i += 1
-                    else:
-                        result += chr(content[i])
-                        i += 1
+                        unicode_char = struct.unpack('<H', content[i:i+2])[0]
+                        result += chr(unicode_char)
+                        i += 2
+                    continue
+                
+                # 如果到这里,说明遇到了未知的字节
+                print(f"Warning: 遇到未知字节: 0x{content[i]:02x}")
+                i += 1
             
             return result
                 
