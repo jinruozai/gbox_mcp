@@ -30,7 +30,7 @@ class SysBoxMCP:GSocketUdp{
 		?"cmd:"+cmd+";agv:"+agv+";ip:"+ip+";port:"+port+";result="+result;
 	}
 	var get_tools(){
-		var v=GLLMTool::GetTools(m_pTool);
+		var v=GLLM::GetTools(m_pTool);
 		?v;
 		return v;
 	}

@@ -3,7 +3,7 @@ import struct
 import socket
 
 class GBoxUDP:
-    def __init__(self, ip='127.0.0.1', port=20000):
+    def __init__(self, ip='127.0.0.1', port=30080):
         """初始化GBoxUDP实例
         
         Args:
@@ -18,14 +18,21 @@ class GBoxUDP:
         self.sock.settimeout(5)
         print(f"GBoxUDP初始化成功: {ip}:{port}")
         
-    def call(self, function_name, params=None):
-        """调用GBox函数并返回结果"""
+    def call(self, obj, function_name, params=None):
+        """调用GBox函数并返回结果
+        
+        Args:
+            obj: 对象引用
+            function_name: 函数名
+            params: 可选的参数字典
+        """
         if params is None:
             params = {}
             
         message = {
-            "function": function_name,
-            "params": params
+            "obj": obj,
+            "name": function_name,
+            "arguments": params
         }
         
         try:
@@ -37,7 +44,7 @@ class GBoxUDP:
             try:
                 response = json.loads(response)
                 if isinstance(response, dict) and 'result' in response:
-                    return json.loads(response['result'])
+                    return response['result']
                 return response
             except json.JSONDecodeError:
                 return {"raw_response": response}
