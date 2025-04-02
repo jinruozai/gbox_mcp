@@ -61,17 +61,6 @@ def fetch_tools(tagmcp,funname,params=None)->bool:
 def init_tools():
     fetch_tools(mcp,"get_tools")
 
-@mcp.tool()
-def get_obj_tools(objstr:str) -> bool:
-    """获取对象的可用工具并注册到 GBox mcp
-    Args:
-        obj: 对象的字符串地址，例如 "&03E3FC48:4E"
-        
-    Returns:
-        int: 是否获取并注册成功
-    """
-    return fetch_tools(mcp,"get_obj_tools",params={"obj":objstr})
-
 # 解析命令行参数
 def parse_args():
     parser = argparse.ArgumentParser(description='GBox MCP服务器')
@@ -88,11 +77,9 @@ if __name__ == "__main__":
     
     # 初始化GBoxUDP实例
     gbox = GBoxTCP(**params)
-    gbox.connect() 
-    gbox.send("hello")
 
     # 初始化工具
-    #init_tools()
-    #mcp.run(transport='stdio')
+    init_tools()
+    mcp.run(transport='stdio')
     
     

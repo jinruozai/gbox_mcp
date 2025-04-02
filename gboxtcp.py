@@ -1,6 +1,7 @@
 import socket
 import threading
 import time
+import json
 
 class GBoxTCP:
     def __init__(self, ip='127.0.0.1', port=30080):
@@ -20,6 +21,9 @@ class GBoxTCP:
         self.last_response = None
         self.waiting_for_response = False
         
+        # 初始化时直接连接
+        self.connect()
+
     def connect(self):
         """建立TCP连接"""
         try:
@@ -108,6 +112,7 @@ class GBoxTCP:
 
     def _on_message_received(self, message: str):
         """处理接收到的消息"""
+        print(f"收到消息: {message}")
         if self.waiting_for_response:
             self.last_response = message
             self.response_event.set()
@@ -139,23 +144,30 @@ class GBoxTCP:
         Args:
             obj (str): 对象地址，例如 "&03E3FC48:4E"
             function_name (str): 函数名
-            params (str, optional): 函数参数，如果有多个参数用逗号分隔
+            params (dict, optional): 函数参数字典
             
         Returns:
             str: 函数返回值，如果调用失败返回None
         """
+        if params is None:
+            params = {}
+            
+        # 构造JSON消息
+        message = {
+            "obj": obj,
+            "name": function_name,
+            "arguments": params
+        }
+        
         # 重置响应事件和上次响应
         self.response_event.clear()
         self.last_response = None
         self.waiting_for_response = True
         
-        # 构造调用命令
-        command = f"{obj}.{function_name}"
-        if params is not None:
-            command += f",{params}"
-            
-        # 发送命令
-        if not self.send(command):
+        # 发送JSON消息
+        s=json.dumps(message)
+        print(f"发送消息: {s}")
+        if not self.send(s):
             self.waiting_for_response = False
             return None
             
@@ -164,4 +176,11 @@ class GBoxTCP:
             self.waiting_for_response = False
             return None
             
-        return self.last_response
+        # 尝试解析响应为JSON
+        try:
+            response = json.loads(self.last_response)
+            if isinstance(response, dict) and 'result' in response:
+                return response['result']
+            return response
+        except json.JSONDecodeError:
+            return {"raw_response": self.last_response}

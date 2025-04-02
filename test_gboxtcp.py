@@ -1,13 +1,9 @@
 import time
 from gboxtcp import GBoxTCP
 
-class TestGBoxTCP(GBoxTCP):
-    def _on_message_received(self, message: str):
-        """重写消息处理方法，只输出收到的消息"""
-        print(f"[RECV] {repr(message)}")
 
 def main():
-    client = TestGBoxTCP('10.211.55.4', 30080)
+    client = GBoxTCP('10.211.55.4', 30080)
     
     try:
         if not client.connect():
