@@ -39,7 +39,6 @@ class GBoxUDP:
             # 发送请求并接收响应
             self._send_str(json.dumps(message))
             response = self._receive()
-            print("response:", response)
             # 尝试解析为JSON
             try:
                 response = json.loads(response)

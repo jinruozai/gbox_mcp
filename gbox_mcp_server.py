@@ -4,25 +4,26 @@ import asyncio
 import threading
 import argparse
 from mcp.server.fastmcp import FastMCP
-from gboxudp import GBoxUDP
-
+from gboxtcp import GBoxTCP
+import time
 # 定义全局变量
 gbox = None
 
 # 初始化MCP
+from mcp.server.lowlevel.server import NotificationOptions
 mcp = FastMCP("GBox")
+# 启用工具变更通知
+mcp._mcp_server.notification_options.tools_changed = True
 
-def init_tools():
+def fetch_tools(tagmcp,funname,params=None)->bool:
     """初始化所有工具"""
     # 获取工具列表
-    tools_info = gbox.call(None, "get_tools")  # obj 为 None，因为是全局函数
-    print("tools_info:", tools_info)
-    print("tools_info type:", type(tools_info))
+    tools_info = gbox.call(None, funname,params)  # obj 为 None，因为是全局函数
     
     # 检查tools_info是否为列表类型
     if not isinstance(tools_info, list):
         print(f"获取到的工具信息格式不正确: {tools_info}")
-        return
+        return False
         
     # 遍历工具列表并添加到MCP
     try:
@@ -37,14 +38,39 @@ def init_tools():
                 gbox.call(tool_obj, tool_name, tool_params)
                 
             # 添加工具到MCP
-            mcp.add_tool(
+            tagmcp.add_tool(
                 tool_func,
                 name=tool['name'],
                 description=tool['description']
             )
         print(f"成功初始化 {len(tools_info)} 个工具")
+        
+        # 尝试通知工具变更
+        try:
+            if hasattr(tagmcp._mcp_server, 'send_notification'):
+                tagmcp._mcp_server.send_notification('$/tools/changed', None)
+        except Exception as e:
+            print(f"发送工具变更通知时出错: {str(e)}")
+        
+        return True
     except Exception as e:
         print(f"初始化工具时发生错误: {str(e)}")
+    return False
+
+
+def init_tools():
+    fetch_tools(mcp,"get_tools")
+
+@mcp.tool()
+def get_obj_tools(objstr:str) -> bool:
+    """获取对象的可用工具并注册到 GBox mcp
+    Args:
+        obj: 对象的字符串地址，例如 "&03E3FC48:4E"
+        
+    Returns:
+        int: 是否获取并注册成功
+    """
+    return fetch_tools(mcp,"get_obj_tools",params={"obj":objstr})
 
 # 解析命令行参数
 def parse_args():
@@ -54,17 +80,19 @@ def parse_args():
     args = parser.parse_args()
     return {k: v for k, v in vars(args).items() if v is not None}
 
+    
 if __name__ == "__main__":
     # 解析命令行参数并获取有效参数
     params = parse_args()
     print(f"使用服务器配置:", ", ".join(f"{k}={v}" for k, v in params.items()) or "使用默认配置")
     
     # 初始化GBoxUDP实例
-    gbox = GBoxUDP(**params)
-    
+    gbox = GBoxTCP(**params)
+    gbox.connect() 
+    gbox.send("hello")
+
     # 初始化工具
-    init_tools()
+    #init_tools()
+    #mcp.run(transport='stdio')
     
-    # 启动MCP服务器
-    mcp.run(transport='stdio')
     
