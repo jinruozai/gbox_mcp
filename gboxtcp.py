@@ -93,6 +93,7 @@ class GBoxTCP:
                         buffer = buffer[cr_index + 2:]
                         # 去除可能的\r
                         line = line.rstrip('\r')
+                        print(f"收到原始数据: {line}")
                         self._on_message_received(line)
                     except ValueError:
                         # 没有找到完整的行，但这是正常的
@@ -112,8 +113,16 @@ class GBoxTCP:
 
     def _on_message_received(self, message: str):
         """处理接收到的消息"""
+        print(f"开始解析消息: {message}")
         if self.waiting_for_response:
-            self.last_response = message
+            try:
+                parsed_response = orjson.loads(message)
+                print(f"解析后的数据: {parsed_response}")
+                print(f"解析后itemid类型: {type(parsed_response.get('result', {}).get('itemid'))}")
+                self.last_response = message
+            except Exception as e:
+                print(f"解析JSON时出错: {e}")
+                self.last_response = message
             self.response_event.set()
             self.waiting_for_response = False
 

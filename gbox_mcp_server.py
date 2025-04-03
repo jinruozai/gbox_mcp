@@ -78,8 +78,6 @@ if __name__ == "__main__":
     # 初始化GBoxUDP实例
     gbox = GBoxTCP(**params)
 
-    testdata = gbox.call("基本工具", "get_role_test_data")
-    print(testdata)
     # 初始化工具
     init_tools()
     mcp.run(transport='stdio')
