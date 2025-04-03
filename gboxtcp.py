@@ -112,7 +112,6 @@ class GBoxTCP:
 
     def _on_message_received(self, message: str):
         """处理接收到的消息"""
-        print(f"收到消息: {message}")
         if self.waiting_for_response:
             self.last_response = message
             self.response_event.set()
