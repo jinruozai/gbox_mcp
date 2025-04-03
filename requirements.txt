@@ -1,2 +1,1 @@
-fastmcp>=1.0.0
-gboxtcp>=1.0.0 
+fastmcp>=1.0.0 
