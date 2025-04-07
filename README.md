@@ -73,7 +73,7 @@ python gbox_mcp_server.py [--ip IP地址] [--port 端口号]
         "command": "python",
         "args": [
             "/Users/username/gbox_mcp/gbox_mcp_server.py",
-            "--ip", "10.211.55.4",
+            "--ip", "127.0.0.1",
             "--port", "30080"
         ]
     }
