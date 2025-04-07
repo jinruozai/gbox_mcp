@@ -13,7 +13,6 @@ GBox MCP (Machine Control Protocol) Server 是一个基于 FastMCP 的服务器�
 
 - Python 3.6+
 - FastMCP
-- GBoxTCP
 
 ## 安装
 
