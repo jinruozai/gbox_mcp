@@ -1,6 +1,6 @@
 # GBox MCP Server
 
-GBox MCP (Machine Control Protocol) Server 是一个基于 FastMCP 的服务器实现，用于与 GBox 系统进行通信和控制。
+GBox MCP Server 是一个基于 FastMCP 的服务器实现，用于与 GBox 游戏运行时进行通信和控制。
 
 ## 功能特点
 
@@ -29,18 +29,6 @@ git clone https://github.com/jinruozai/gbox_mcp.git
 pip install -r requirements.txt
 ```
 
-## 使用方法
-
-### 直接启动服务器
-
-```bash
-python gbox_mcp_server.py [--ip IP地址] [--port 端口号]
-```
-
-参数说明：
-- `--ip`: 服务器IP地址（可选）
-- `--port`: 服务器端口号（可选）
-
 ### MCP 配置方法
 
 在 MCP 配置文件中（通常位于 `~/.cursor/mcp.json`）添加以下配置：
@@ -64,20 +52,6 @@ python gbox_mcp_server.py [--ip IP地址] [--port 端口号]
   - 第一个参数为服务器脚本的完整路径
   - `--ip`: 设置服务器监听的 IP 地址
   - `--port`: 设置服务器监听的端口号
-
-示例：
-```json
-{
-    "gbox": {
-        "command": "python",
-        "args": [
-            "/Users/username/gbox_mcp/gbox_mcp_server.py",
-            "--ip", "127.0.0.1",
-            "--port", "30080"
-        ]
-    }
-}
-```
 
 ## 许可证
 
