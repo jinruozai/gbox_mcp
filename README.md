@@ -32,15 +32,53 @@ pip install -r requirements.txt
 
 ## 使用方法
 
-启动服务器：
+### 直接启动服务器
+
 ```bash
 python gbox_mcp_server.py [--ip IP地址] [--port 端口号]
 ```
 
-### 参数说明
-
+参数说明：
 - `--ip`: 服务器IP地址（可选）
 - `--port`: 服务器端口号（可选）
+
+### MCP 配置方法
+
+在 MCP 配置文件中（通常位于 `~/.cursor/mcp.json`）添加以下配置：
+
+```json
+{
+    "gbox": {
+        "command": "python",
+        "args": [
+            "/path/to/gbox_mcp/gbox_mcp_server.py",
+            "--ip", "your_ip_address",
+            "--port", "your_port"
+        ]
+    }
+}
+```
+
+配置说明：
+- `command`: 使用 python 执行服务器脚本
+- `args`: 服务器脚本路径和参数
+  - 第一个参数为服务器脚本的完整路径
+  - `--ip`: 设置服务器监听的 IP 地址
+  - `--port`: 设置服务器监听的端口号
+
+示例：
+```json
+{
+    "gbox": {
+        "command": "python",
+        "args": [
+            "/Users/username/gbox_mcp/gbox_mcp_server.py",
+            "--ip", "10.211.55.4",
+            "--port", "30080"
+        ]
+    }
+}
+```
 
 ## 许可证
 
