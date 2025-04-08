@@ -73,8 +73,8 @@ DOC_DIR = "gbox_doc"
 SYNTAX_DOC_PATH = os.path.join(DOC_DIR, "gbox_syntax.md")
 API_DOC_PATH = os.path.join(DOC_DIR, "gbox_api.md")
 
-@mcp.resource("gbox://doc/syntax")
-def get_syntax_doc() -> str:
+@mcp.tool()
+def get_gbox_syntax_doc() -> str:
     """提供 GBox 语法文档 (gbox_syntax.md) 的内容。
     
     使用场景：
@@ -92,8 +92,8 @@ def get_syntax_doc() -> str:
         print(f"Error loading syntax documentation file {SYNTAX_DOC_PATH}: {e}")
         return f"Error loading syntax documentation file {SYNTAX_DOC_PATH}: {e}" # Return error message to client
 
-@mcp.resource("gbox://doc/api")
-def get_api_doc() -> str:
+@mcp.tool()
+def get_gbox_api_doc() -> str:
     """提供 GBox API 文档 (gbox_api.md) 的内容。
     
     使用场景：
@@ -111,17 +111,6 @@ def get_api_doc() -> str:
     except Exception as e:
         print(f"Error loading API documentation file {API_DOC_PATH}: {e}")
         return f"Error loading API documentation file {API_DOC_PATH}: {e}" # Return error message to client
-
-@mcp.tool()
-def gbox_description() -> str:
-    """Returns a description of the GBox game engine, including its main features and capabilities."""
-    description = """GBox 是一个轻量级的游戏引擎，支持 2D 和 3D 游戏开发。
-    主要特点：
-    - 支持 2D 和 3D 游戏开发
-    - 轻量级设计
-    - 易于使用和集成
-    """
-    return f"GBox Description: {description}"
 
 if __name__ == "__main__":
     # 解析命令行参数并获取有效参数
