@@ -31,9 +31,8 @@ pip install -r requirements.txt
 
 ### MCP 配置方法
 
-在 MCP 配置文件中（通常位于 `~/.cursor/mcp.json`）添加以下配置：
+在您的 MCP 客户端配置中添加以下配置：
 
-```json
 {
     "gbox": {
         "command": "python",
@@ -44,7 +43,6 @@ pip install -r requirements.txt
         ]
     }
 }
-```
 
 配置说明：
 - `command`: 使用 python 执行服务器脚本
