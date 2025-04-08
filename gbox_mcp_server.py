@@ -75,7 +75,13 @@ API_DOC_PATH = os.path.join(DOC_DIR, "gbox_api.md")
 
 @mcp.resource("gbox://doc/syntax")
 def get_syntax_doc() -> str:
-    """Provides the content of the GBox syntax documentation (gbox_syntax.md) as a resource."""
+    """提供 GBox 语法文档 (gbox_syntax.md) 的内容。
+    
+    使用场景：
+    - 当你需要了解 GBox 的基本语法规则时
+    - 在开始编写 GBox 代码之前，建议先阅读此文档
+    - 当遇到语法相关的错误时，可以查阅此文档进行排查
+    """
     try:
         with open(SYNTAX_DOC_PATH, 'r', encoding='utf-8') as f:
             return f.read()
@@ -88,7 +94,14 @@ def get_syntax_doc() -> str:
 
 @mcp.resource("gbox://doc/api")
 def get_api_doc() -> str:
-    """Provides the content of the GBox API documentation (gbox_api.md) as a resource."""
+    """提供 GBox API 文档 (gbox_api.md) 的内容。
+    
+    使用场景：
+    - 当你需要查找特定的 GBox 函数或功能时
+    - 在开发过程中需要了解 API 的具体用法和参数说明
+    - 想要探索 GBox 提供的所有功能和接口时
+    - 遇到函数调用相关的问题时，可以查阅此文档获取正确的使用方法
+    """
     try:
         with open(API_DOC_PATH, 'r', encoding='utf-8') as f:
             return f.read()
@@ -100,17 +113,15 @@ def get_api_doc() -> str:
         return f"Error loading API documentation file {API_DOC_PATH}: {e}" # Return error message to client
 
 @mcp.tool()
-def gbox_version() -> str:
-    """Returns the current GBox engine version by attempting to call 'get_gbox_version' via the GBox connection."""
-    global gbox
-    if gbox:
-        try:
-            version_info = gbox.call(None, "get_gbox_version") 
-            return f"GBox Version: {str(version_info)}" 
-        except Exception as e:
-            return f"Error attempting to call get_gbox_version via GBox connection: {e}"
-    else:
-        return "GBox connection has not been initialized. Cannot retrieve version."
+def gbox_description() -> str:
+    """Returns a description of the GBox game engine, including its main features and capabilities."""
+    description = """GBox 是一个轻量级的游戏引擎，支持 2D 和 3D 游戏开发。
+    主要特点：
+    - 支持 2D 和 3D 游戏开发
+    - 轻量级设计
+    - 易于使用和集成
+    """
+    return f"GBox Description: {description}"
 
 if __name__ == "__main__":
     # 解析命令行参数并获取有效参数
@@ -122,13 +133,6 @@ if __name__ == "__main__":
 
     # 初始化工具
     init_tools()
-
-    # 初始化工具 (Dynamically fetched from GBox)
-    init_tools() 
-
-    # --- Remove explicit tool registration ---
-    # The gbox_version tool is now registered via the @mcp.tool() decorator above.
-    # The documentation resources (gbox://doc/syntax, gbox://doc/api) are registered via the @mcp.resource decorator above.
     
     # Attempt to notify about tool changes (from init_tools). 
     # Statically registered tools/resources are available immediately.
